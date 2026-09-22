@@ -30,6 +30,7 @@ textarea{min-height:88px}.sigwrap{background:white;border:1px solid var(--line);
 .success{border-color:#b8dfca;background:#e9f7f0;color:#176942}.hidden{display:none}.photo{min-height:84px;border:1px dashed #aeb8c2;border-radius:10px;display:grid;place-items:center;color:var(--muted);font-size:13px;background:white}
 .capture-review{background:#fff;border:1px solid var(--line);border-radius:15px;padding:12px;margin-bottom:12px}.capture-review img{display:block;width:100%;max-height:52vh;object-fit:contain;border-radius:10px;background:#111}.capture-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.capture-actions button{min-height:54px;border-radius:12px;font-weight:900}.capture-retake{border:1px solid #d7a5a5;background:#fff;color:#9b2f2f}.capture-send{border:0;background:var(--green);color:#fff}
 .jobbundle{border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:18px}.jobbundle:last-of-type{border-bottom:0}.jobref{font-size:17px;font-weight:900;margin:4px 2px 10px}.jobstatus{display:inline-block;border-radius:99px;background:#e8f1ff;color:#1658b3;padding:4px 8px;font-size:11px;font-weight:900;margin-top:6px}.queue-empty{padding:18px;text-align:center;color:var(--muted);background:#fff;border:1px dashed var(--line);border-radius:12px;margin-bottom:12px}
+.confirm-overlay{position:fixed;inset:0;z-index:50;background:rgba(8,14,20,.58);display:grid;place-items:center;padding:18px}.confirm-overlay.hidden{display:none}.confirm-box{width:min(420px,100%);background:#fff;border-radius:16px;padding:18px;border:1px solid var(--line)}.confirm-title{font-size:20px;font-weight:900;margin-bottom:7px}.confirm-message{color:var(--muted);line-height:1.4;margin-bottom:16px}.confirm-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.confirm-actions button{min-height:54px;border-radius:12px;font-weight:900}.confirm-no{background:#fff;border:1px solid var(--line);color:var(--ink)}.confirm-yes{background:var(--blue);border:0;color:#fff}
 .editbar.hidden{display:none!important}.editbar{position:sticky;top:58px;z-index:6;background:#fff7df;border-bottom:1px solid #ead49c;padding:8px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
 .editbar button{min-height:38px;border:1px solid #d7c17e;background:#fff;border-radius:8px;font-size:11px;font-weight:900;color:#5b4a1d;padding:5px}
 .editbar .editdone{background:#1f6feb;color:#fff;border-color:#1f6feb}.editbar .editreset{color:#a13b3b}.edit-help{grid-column:1/-1;font-size:11px;color:#6b572c;text-align:center;padding:2px 4px}
@@ -50,12 +51,24 @@ body.editing main{padding-bottom:160px}.cfeditable{transition:outline .08s,opaci
 <button class="navbtn" data-view="new">New Jobs <span class="badge" id="bn">1</span></button>
 <button class="navbtn" data-view="onboard">On Board <span class="badge" id="bo">0</span></button>
 <button class="navbtn" data-view="delivery">Deliveries <span class="badge" id="bd">0</span></button>
-</nav></div>
+</nav>
+<div class="confirm-overlay hidden" id="confirmOverlay" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+  <div class="confirm-box">
+    <div class="confirm-title" id="confirmTitle">Confirm action</div>
+    <div class="confirm-message" id="confirmMessage"></div>
+    <div class="confirm-actions">
+      <button class="confirm-no" id="confirmNo">NO</button>
+      <button class="confirm-yes" id="confirmYes">YES</button>
+    </div>
+  </div>
+</div>
+</div>
 <script>
 (()=> {
 const M=document.getElementById('main');
 const editbar=document.getElementById('editbar'),editToggle=document.getElementById('editToggle'),editHelp=document.getElementById('editHelp'),editPrev=document.getElementById('editPrev'),editNext=document.getElementById('editNext'),editUp=document.getElementById('editUp'),editDown=document.getElementById('editDown'),editNarrow=document.getElementById('editNarrow'),editWide=document.getElementById('editWide'),editShort=document.getElementById('editShort'),editTall=document.getElementById('editTall'),editTextMinus=document.getElementById('editTextMinus'),editTextPlus=document.getElementById('editTextPlus'),editRename=document.getElementById('editRename'),editHide=document.getElementById('editHide'),editReset=document.getElementById('editReset'),editResetScreen=document.getElementById('editResetScreen'),editDone=document.getElementById('editDone');
 const bn=document.getElementById('bn'),bo=document.getElementById('bo'),bd=document.getElementById('bd');
+const confirmOverlay=document.getElementById('confirmOverlay'),confirmTitle=document.getElementById('confirmTitle'),confirmMessage=document.getElementById('confirmMessage'),confirmNo=document.getElementById('confirmNo'),confirmYes=document.getElementById('confirmYes');
 const K='cf_driver_multi_v1',EK='cf_driver_layout_edits_v1',PK='cf_driver_admin_pin_v1';
 
 const TEST_JOBS=[
@@ -83,6 +96,19 @@ function html(v){return String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 function now(){const d=new Date(),p=n=>String(n).padStart(2,'0');return{date:d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()),time:p(d.getHours())+':'+p(d.getMinutes())}}
 function sync(){const x=document.getElementById('sync');x.textContent='● Syncing';x.style.color='#ffd28a';setTimeout(()=>{x.textContent='● Synced';x.style.color=''},450)}
 function nav(){alert('Navigation is a test placeholder. Google Maps/Waze will be connected in the production build.')}
+let confirmAction=null;
+function askConfirm(title,message,yesLabel,onYes){
+ confirmTitle.textContent=title;
+ confirmMessage.textContent=message;
+ confirmYes.textContent=yesLabel||'YES';
+ confirmAction=onYes;
+ confirmOverlay.classList.remove('hidden');
+ setTimeout(()=>confirmYes.focus(),0)
+}
+function closeConfirm(){confirmOverlay.classList.add('hidden');confirmAction=null}
+confirmNo.onclick=closeConfirm;
+confirmYes.onclick=()=>{const fn=confirmAction;closeConfirm();if(fn)fn()};
+confirmOverlay.addEventListener('click',e=>{if(e.target===confirmOverlay)closeConfirm()});
 function activeDeliveryJobs(){return s.jobs.filter(j=>j.status==='delivery'||j.status==='pod')}
 function badges(){
  bn.textContent=s.jobs.filter(j=>j.status==='new').length;
@@ -118,7 +144,12 @@ function newJobs(){
  document.querySelectorAll('.openCollection').forEach(b=>b.onclick=()=>openCollection(b.dataset.id));
  resetAll.onclick=()=>{if(confirm('Reset all four test bookings?')){localStorage.removeItem(K);s=freshState();clearCollectionPhoto();render()}}
 }
-function startJob(id){const j=job(id);j.status='collection';j.cstep=0;s.selected=id;s.view='collection';save();sync();render()}
+function startJob(id){
+ const j=job(id);
+ askConfirm('Start job?','Confirm START JOB for '+j.id+'.','YES — START',()=>{
+  j.status='collection';j.cstep=0;s.selected=id;s.view='collection';save();sync();render()
+ })
+}
 function openCollection(id){s.selected=id;s.view='collection';save();render()}
 
 function collection(){
@@ -127,7 +158,17 @@ function collection(){
  M.innerHTML='<div class="eyebrow">Collection</div><div class="progress"><span class="pill '+(j.cstep===0?'active':j.cstep>0?'done':'')+'">En route</span><span class="pill '+(j.cstep===1?'active':j.cstep>1?'done':'')+'">Arrived</span><span class="pill '+(j.cstep===2?'active':'')+'">Collected</span></div><div class="card"><div class="title">COLLECTION</div><div class="ref">Job '+j.id+'</div></div><div class="card"><h3>Collection Address</h3>'+html(j.collectionCompany)+'<br>'+html(j.collectionAddress)+'<br>'+html(j.collectionTown)+'</div><div class="card"><h3>Contact</h3><div class="muted">'+html(j.collectionContact)+' • '+html(j.collectionPhone)+'</div></div><div class="grid2"><div class="card"><h3>Goods</h3><div class="muted">'+html(j.goods)+'</div></div><button class="secondary" id="navBtn">NAVIGATE</button></div><button class="action" id="collectionAction">'+lab+'</button><div style="height:10px"></div><button class="secondary" id="backJobs">BACK TO JOBS</button>';
  navBtn.onclick=nav;
  backJobs.onclick=()=>setView('new');
- collectionAction.onclick=()=>{if(j.cstep<2){j.cstep++;save();sync();render()}else openCollectionCamera()}
+ collectionAction.onclick=()=>{
+ const labels=[
+  {title:'En route to collection?',message:'Confirm you are now ENROUTE TO COLLECTION for '+j.id+'.',yes:'YES — ENROUTE'},
+  {title:'Arrived at collection?',message:'Confirm you have ARRIVED AT COLLECTION for '+j.id+'.',yes:'YES — ARRIVED'},
+  {title:'Goods collected?',message:'Confirm the goods have been COLLECTED for '+j.id+'. The camera will open next.',yes:'YES — COLLECTED'}
+ ];
+ const x=labels[Math.min(j.cstep,2)];
+ askConfirm(x.title,x.message,x.yes,()=>{
+  if(j.cstep<2){j.cstep++;save();sync();render()}else openCollectionCamera()
+ })
+}
 }
 
 function clearCollectionPhoto(){if(collectionPhotoUrl)URL.revokeObjectURL(collectionPhotoUrl);collectionPhotoUrl='';collectionPhotoFile=null}
@@ -177,7 +218,17 @@ function deliveryDetail(){
  M.innerHTML='<div class="eyebrow">Deliveries</div><div class="progress"><span class="pill '+(j.dstep===0?'active':'done')+'">En route</span><span class="pill '+(j.dstep===1?'active':'')+'">Arrived</span><span class="pill">POD</span></div><div class="card"><div class="title">DELIVERY</div><div class="ref">Job '+j.id+'</div></div><div class="card"><h3>Delivery Address</h3>'+html(j.deliveryCompany)+'<br>'+html(j.deliveryAddress)+'<br>'+html(j.deliveryTown)+'</div><div class="card"><h3>Contact</h3><div class="muted">'+html(j.deliveryContact)+' • '+html(j.deliveryPhone)+'</div></div><div class="grid2"><div class="card"><h3>Goods to deliver</h3><div class="muted">'+html(j.goods)+'</div></div><button class="secondary" id="navBtn">NAVIGATE</button></div><button class="action" id="deliveryAction">'+lab+'</button><div style="height:10px"></div><button class="secondary" id="backDeliveries">BACK TO DELIVERIES</button>';
  navBtn.onclick=nav;
  backDeliveries.onclick=()=>setView('delivery');
- deliveryAction.onclick=()=>{if(j.dstep===0){j.dstep=1;save();sync();render()}else{j.status='pod';const n=now();j.pod.date=j.pod.date||n.date;j.pod.time=j.pod.time||n.time;s.view='pod';save();render()}}
+ deliveryAction.onclick=()=>{
+ if(j.dstep===0){
+  askConfirm('Arrived at delivery?','Confirm you have ARRIVED AT DELIVERY for '+j.id+'.','YES — ARRIVED',()=>{
+   j.dstep=1;save();sync();render()
+  })
+ }else{
+  askConfirm('Open POD?','Confirm you are ready to complete POD for '+j.id+'.','YES — POD',()=>{
+   j.status='pod';const n=now();j.pod.date=j.pod.date||n.date;j.pod.time=j.pod.time||n.time;s.view='pod';save();render()
+  })
+ }
+}
 }
 
 function pod(){
@@ -193,7 +244,9 @@ function pod(){
  completeDelivery.onclick=()=>{
   if(!j.pod.name.trim()){podWarn.textContent='Enter the recipient name before completing POD.';podWarn.classList.remove('hidden');return}
   if(!sigOK){podWarn.textContent='Please obtain a recipient signature.';podWarn.classList.remove('hidden');return}
-  j.status='complete';j.completedAt=j.pod.date+' '+j.pod.time;s.view='complete';save();sync();render()
+  askConfirm('Complete delivery?','Confirm delivery '+j.id+' is complete and the POD details are correct.','YES — COMPLETE',()=>{
+   j.status='complete';j.completedAt=j.pod.date+' '+j.pod.time;s.view='complete';save();sync();render()
+  })
  }
 }
 function wireSig(){
