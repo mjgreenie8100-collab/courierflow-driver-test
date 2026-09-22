@@ -38,8 +38,8 @@ body.editing main{padding-bottom:160px}.cfeditable{transition:outline .08s,opaci
 <div class="app">
 <header><div class="top"><div class="brand">Courier Flow Driver</div><div class="header-actions"><div class="sync" id="sync">● Synced</div><button class="edit-toggle" id="editToggle">EDIT</button></div></div></header>
 <div class="editbar hidden" id="editbar">
-<button id="editUp">↑ MOVE</button><button id="editDown">↓ MOVE</button><button id="editNarrow">W−</button><button id="editWide">W+</button><button id="editShort">H−</button>
-<button id="editTall">H+</button><button id="editTextMinus">TEXT−</button><button id="editTextPlus">TEXT+</button><button id="editRename">RENAME</button><button id="editHide">HIDE</button>
+<button id="editPrev">◀ PREV</button><button id="editNext">NEXT ▶</button><button id="editUp">↑ MOVE</button><button id="editDown">↓ MOVE</button><button id="editNarrow">W−</button>
+<button id="editWide">W+</button><button id="editShort">H−</button><button id="editTall">H+</button><button id="editTextMinus">TEXT−</button><button id="editTextPlus">TEXT+</button><button id="editRename">RENAME</button><button id="editHide">HIDE</button>
 <button id="editReset" class="editreset">RESET ITEM</button><button id="editResetScreen" class="editreset">RESET SCREEN</button><button id="editDone" class="editdone">DONE</button>
 <div class="edit-help" id="editHelp">Tap a block below to edit it. Changes save on this phone.</div>
 </div>
@@ -50,7 +50,7 @@ body.editing main{padding-bottom:160px}.cfeditable{transition:outline .08s,opaci
 <button class="navbtn" data-view="delivery">Deliveries <span class="badge" id="bd">0</span></button>
 </nav></div>
 <script>
-(()=>{const M=document.getElementById('main'),editbar=document.getElementById('editbar'),editToggle=document.getElementById('editToggle'),editHelp=document.getElementById('editHelp'),editUp=document.getElementById('editUp'),editDown=document.getElementById('editDown'),editNarrow=document.getElementById('editNarrow'),editWide=document.getElementById('editWide'),editShort=document.getElementById('editShort'),editTall=document.getElementById('editTall'),editTextMinus=document.getElementById('editTextMinus'),editTextPlus=document.getElementById('editTextPlus'),editRename=document.getElementById('editRename'),editHide=document.getElementById('editHide'),editReset=document.getElementById('editReset'),editResetScreen=document.getElementById('editResetScreen'),editDone=document.getElementById('editDone'),K='cf_driver_test_v2',EK='cf_driver_layout_edits_v1',PK='cf_driver_admin_pin_v1';const D={view:'new',started:false,cstep:0,collected:false,dstarted:false,dstep:0,pod:false,name:'',date:'',time:'',notes:''};let s=load(),editMode=false,selected=null,L=loadLayout();
+(()=>{const M=document.getElementById('main'),editbar=document.getElementById('editbar'),editToggle=document.getElementById('editToggle'),editHelp=document.getElementById('editHelp'),editPrev=document.getElementById('editPrev'),editNext=document.getElementById('editNext'),editUp=document.getElementById('editUp'),editDown=document.getElementById('editDown'),editNarrow=document.getElementById('editNarrow'),editWide=document.getElementById('editWide'),editShort=document.getElementById('editShort'),editTall=document.getElementById('editTall'),editTextMinus=document.getElementById('editTextMinus'),editTextPlus=document.getElementById('editTextPlus'),editRename=document.getElementById('editRename'),editHide=document.getElementById('editHide'),editReset=document.getElementById('editReset'),editResetScreen=document.getElementById('editResetScreen'),editDone=document.getElementById('editDone'),K='cf_driver_test_v2',EK='cf_driver_layout_edits_v1',PK='cf_driver_admin_pin_v1';const D={view:'new',started:false,cstep:0,collected:false,dstarted:false,dstep:0,pod:false,name:'',date:'',time:'',notes:''};let s=load(),editMode=false,selected=null,L=loadLayout();
 function load(){try{return {...D,...JSON.parse(localStorage.getItem(K)||'{}')}}catch{return {...D}}}
 function save(){localStorage.setItem(K,JSON.stringify(s));badges()}
 function now(){const d=new Date(),p=n=>String(n).padStart(2,'0');return{date:d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()),time:p(d.getHours())+':'+p(d.getMinutes())}}
@@ -94,6 +94,13 @@ function decorate(){
 }
 function cfgFor(el){L.items=L.items||{};return L.items[el.dataset.cfkey]||(L.items[el.dataset.cfkey]={})}
 function selectBlock(el){selected=el.dataset.cfkey;decorate()}
+function selectableBlocks(){return [...M.children].filter(el=>el.dataset.cfkey&&!el.classList.contains('eyebrow'))}
+function selectRelative(dir){
+  const list=selectableBlocks();if(!list.length)return;
+  let i=list.findIndex(el=>el.dataset.cfkey===selected);
+  if(i<0)i=0;else i=(i+dir+list.length)%list.length;
+  selected=list[i].dataset.cfkey;decorate();list[i].scrollIntoView({behavior:'smooth',block:'center'})
+}
 function selectedEl(){return [...M.children].find(x=>x.dataset.cfkey===selected)}
 function changeSelected(fn){
   const el=selectedEl();if(!el)return alert('Tap a block first.');
@@ -114,7 +121,7 @@ function enterEdit(){
   }else{
     const a=prompt('Enter TEST ADMIN PIN:');if(a!==pin)return alert('Incorrect PIN.');
   }
-  editMode=true;selected=null;document.body.classList.add('editing');editbar.classList.remove('hidden');editToggle.textContent='EDITING';render()
+  editMode=true;selected=null;document.body.classList.add('editing');editbar.classList.remove('hidden');editToggle.textContent='EDITING';render();setTimeout(()=>{const first=selectableBlocks()[0];if(first){selected=first.dataset.cfkey;decorate();editHelp.textContent='Selected: '+((textTarget(first)?.textContent||first.textContent).trim().slice(0,40)||'block')+' — use PREV/NEXT or tap another block.'}},40)
 }
 function exitEdit(){editMode=false;selected=null;document.body.classList.remove('editing');editbar.classList.add('hidden');editToggle.textContent='EDIT';render()}
 M.addEventListener('click',e=>{
@@ -124,13 +131,14 @@ M.addEventListener('click',e=>{
 },true);
 editToggle.onclick=()=>editMode?exitEdit():enterEdit();
 editDone.onclick=exitEdit;
+editPrev.onclick=()=>selectRelative(-1);editNext.onclick=()=>selectRelative(1);
 editUp.onclick=()=>moveSelected(-1);editDown.onclick=()=>moveSelected(1);
-editNarrow.onclick=()=>changeSelected((el,cfg)=>cfg.width=Math.max(50,(cfg.width||100)-5));
-editWide.onclick=()=>changeSelected((el,cfg)=>cfg.width=Math.min(100,(cfg.width||Math.round(el.getBoundingClientRect().width/M.getBoundingClientRect().width*100))+5));
-editShort.onclick=()=>changeSelected((el,cfg)=>cfg.height=Math.max(36,(cfg.height||el.offsetHeight)-10));
-editTall.onclick=()=>changeSelected((el,cfg)=>cfg.height=(cfg.height||el.offsetHeight)+10);
-editTextMinus.onclick=()=>changeSelected((el,cfg)=>{const t=textTarget(el);if(!t)return alert('This block has no editable heading.');cfg.font=Math.max(10,(cfg.font||parseFloat(getComputedStyle(t).fontSize))-1)});
-editTextPlus.onclick=()=>changeSelected((el,cfg)=>{const t=textTarget(el);if(!t)return alert('This block has no editable heading.');cfg.font=Math.min(34,(cfg.font||parseFloat(getComputedStyle(t).fontSize))+1)});
+editNarrow.onclick=()=>changeSelected((el,cfg)=>cfg.width=Math.max(50,(cfg.width||100)-10));
+editWide.onclick=()=>changeSelected((el,cfg)=>cfg.width=Math.min(100,(cfg.width||Math.round(el.getBoundingClientRect().width/M.getBoundingClientRect().width*100))+10));
+editShort.onclick=()=>changeSelected((el,cfg)=>cfg.height=Math.max(36,(cfg.height||el.offsetHeight)-20));
+editTall.onclick=()=>changeSelected((el,cfg)=>cfg.height=(cfg.height||el.offsetHeight)+20);
+editTextMinus.onclick=()=>changeSelected((el,cfg)=>{const t=textTarget(el);if(!t)return alert('This block has no editable heading.');cfg.font=Math.max(10,(cfg.font||parseFloat(getComputedStyle(t).fontSize))-2)});
+editTextPlus.onclick=()=>changeSelected((el,cfg)=>{const t=textTarget(el);if(!t)return alert('This block has no editable heading.');cfg.font=Math.min(36,(cfg.font||parseFloat(getComputedStyle(t).fontSize))+2)});
 editRename.onclick=()=>changeSelected((el,cfg)=>{if(isProtected(el))return alert('Workflow button wording is protected in phone edit mode.');const t=textTarget(el);if(!t)return alert('This block has no editable label.');const v=prompt('New label:',cfg.label!==undefined?cfg.label:t.textContent);if(v!==null&&v.trim())cfg.label=v.trim()});
 editHide.onclick=()=>changeSelected((el,cfg)=>{if(isProtected(el))return alert('Critical workflow buttons cannot be hidden.');cfg.hidden=!cfg.hidden;editHide.textContent=cfg.hidden?'SHOW':'HIDE'});
 editReset.onclick=()=>{const el=selectedEl();if(!el)return alert('Tap a block first.');delete L.items[el.dataset.cfkey];saveLayout();render()};
