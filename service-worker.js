@@ -1,4 +1,4 @@
-const CACHE='courierflow-driver-v5';
+const CACHE='courierflow-driver-v6';
 const FILES=['./','./index.html','./manifest.webmanifest','./icon.svg'];
 
 self.addEventListener('install',e=>{
