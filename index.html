@@ -12,7 +12,7 @@
 *{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}
 .app{max-width:560px;margin:auto;min-height:100vh;background:#f7f9fb;padding-bottom:74px}
 header{position:sticky;top:0;z-index:5;background:var(--dark);color:#fff;padding:14px 16px}
-.top{display:flex;justify-content:space-between;gap:10px;align-items:center}.brand{font-weight:900}.sync{font-size:12px;color:#b9f2d1}
+.top{display:flex;justify-content:space-between;gap:10px;align-items:center}.brand{font-weight:900}.header-actions{display:flex;align-items:center;gap:8px}.sync{font-size:12px;color:#b9f2d1}.edit-toggle{border:1px solid #5d6975;background:#202d38;color:#fff;border-radius:8px;padding:7px 9px;font-size:11px;font-weight:900}
 main{padding:14px}.eyebrow{font-size:11px;font-weight:900;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin:2px 0 9px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:14px;margin-bottom:11px}
 .title{font-size:20px;font-weight:900}.ref,.muted{color:var(--muted);font-size:13px;margin-top:3px}
@@ -28,11 +28,21 @@ textarea{min-height:88px}.sigwrap{background:white;border:1px solid var(--line);
 #sig{width:100%;height:190px;display:block;border:1px dashed #aeb8c2;border-radius:9px;background:#fff;touch-action:none}
 .small{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 10px;font-weight:800}.notice{border:1px solid #ead49c;background:#fff8e8;color:#6c592e;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:11px}
 .success{border-color:#b8dfca;background:#e9f7f0;color:#176942}.hidden{display:none}.photo{min-height:84px;border:1px dashed #aeb8c2;border-radius:10px;display:grid;place-items:center;color:var(--muted);font-size:13px;background:white}
+.editbar{position:sticky;top:58px;z-index:6;background:#fff7df;border-bottom:1px solid #ead49c;padding:8px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.editbar button{min-height:38px;border:1px solid #d7c17e;background:#fff;border-radius:8px;font-size:11px;font-weight:900;color:#5b4a1d;padding:5px}
+.editbar .editdone{background:#1f6feb;color:#fff;border-color:#1f6feb}.editbar .editreset{color:#a13b3b}.edit-help{grid-column:1/-1;font-size:11px;color:#6b572c;text-align:center;padding:2px 4px}
+body.editing main{padding-bottom:160px}.cfeditable{transition:outline .08s,opacity .08s}.editing .cfeditable{outline:1px dashed #95a1ad;outline-offset:2px;cursor:pointer}.editing .cfeditable.cfselected{outline:3px solid #7b57d1;outline-offset:3px}.editing .cfeditable.cfhidden{opacity:.28!important;display:block!important}.editing .cfeditable.cfprotected::after{content:"PROTECTED";float:right;font-size:9px;background:#fff1c2;color:#715b19;border-radius:5px;padding:2px 5px;margin:2px}
 </style>
 </head>
 <body>
 <div class="app">
-<header><div class="top"><div class="brand">Courier Flow Driver</div><div class="sync" id="sync">● Synced</div></div></header>
+<header><div class="top"><div class="brand">Courier Flow Driver</div><div class="header-actions"><div class="sync" id="sync">● Synced</div><button class="edit-toggle" id="editToggle">EDIT</button></div></div></header>
+<div class="editbar hidden" id="editbar">
+<button id="editUp">↑ MOVE</button><button id="editDown">↓ MOVE</button><button id="editNarrow">W−</button><button id="editWide">W+</button><button id="editShort">H−</button>
+<button id="editTall">H+</button><button id="editTextMinus">TEXT−</button><button id="editTextPlus">TEXT+</button><button id="editRename">RENAME</button><button id="editHide">HIDE</button>
+<button id="editReset" class="editreset">RESET ITEM</button><button id="editResetScreen" class="editreset">RESET SCREEN</button><button id="editDone" class="editdone">DONE</button>
+<div class="edit-help" id="editHelp">Tap a block below to edit it. Changes save on this phone.</div>
+</div>
 <main id="main"></main>
 <nav class="bottom">
 <button class="navbtn" data-view="new">New Jobs <span class="badge" id="bn">1</span></button>
@@ -40,7 +50,7 @@ textarea{min-height:88px}.sigwrap{background:white;border:1px solid var(--line);
 <button class="navbtn" data-view="delivery">Deliveries <span class="badge" id="bd">0</span></button>
 </nav></div>
 <script>
-(()=>{const M=document.getElementById('main'),K='cf_driver_test_v2';const D={view:'new',started:false,cstep:0,collected:false,dstarted:false,dstep:0,pod:false,name:'',date:'',time:'',notes:''};let s=load();
+(()=>{const M=document.getElementById('main'),K='cf_driver_test_v2',EK='cf_driver_layout_edits_v1',PK='cf_driver_admin_pin_v1';const D={view:'new',started:false,cstep:0,collected:false,dstarted:false,dstep:0,pod:false,name:'',date:'',time:'',notes:''};let s=load(),editMode=false,selected=null,L=loadLayout();
 function load(){try{return {...D,...JSON.parse(localStorage.getItem(K)||'{}')}}catch{return {...D}}}
 function save(){localStorage.setItem(K,JSON.stringify(s));badges()}
 function now(){const d=new Date(),p=n=>String(n).padStart(2,'0');return{date:d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()),time:p(d.getHours())+':'+p(d.getMinutes())}}
@@ -48,7 +58,83 @@ function sync(){const x=document.getElementById('sync');x.textContent='● Synci
 function badges(){bn.textContent=s.started?'0':'1';bo.textContent=s.collected&&!s.dstarted&&!s.pod?'1':'0';bd.textContent=s.dstarted&&!s.pod?'1':'0';document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.view===s.view))}
 function set(v){s.view=v;save();render()}
 function nav(){alert('Navigation is a test placeholder. Google Maps/Waze will be connected in the production build.')}
-function render(){badges();if(s.pod){complete();return}({new:newJob,collection,onboard,delivery,pod}[s.view]||newJob)()}
+function render(){badges();if(s.pod){complete();setTimeout(decorate,0);return}({new:newJob,collection,onboard,delivery,pod}[s.view]||newJob)();setTimeout(decorate,0)}
+function loadLayout(){try{return JSON.parse(localStorage.getItem(EK)||'{"items":{},"order":{}}')}catch{return{items:{},order:{}}}}
+function saveLayout(){localStorage.setItem(EK,JSON.stringify(L))}
+function isProtected(el){return el.matches('button.action')||['go','act','complete'].includes(el.id)}
+function textTarget(el){if(el.matches('button'))return el;return el.querySelector('.title,h3')||null}
+function baseKey(el,i){return s.view+':'+i}
+function decorate(){
+  const els=[...M.children];
+  els.forEach((el,i)=>{el.dataset.cfkey=baseKey(el,i);el.classList.add('cfeditable');el.classList.toggle('cfprotected',isProtected(el))});
+  const order=L.order?.[s.view];
+  if(Array.isArray(order)&&order.length){
+    const map=new Map([...M.children].map(x=>[x.dataset.cfkey,x]));
+    order.forEach(k=>{const el=map.get(k);if(el)M.appendChild(el)});
+    [...M.children].filter(x=>!order.includes(x.dataset.cfkey)).forEach(x=>M.appendChild(x));
+  }
+  [...M.children].forEach(el=>{
+    const key=el.dataset.cfkey,cfg=(L.items&&L.items[key])||{};
+    el.classList.remove('cfselected','cfhidden');
+    if(cfg.width) {el.style.width=cfg.width+'%';el.style.marginLeft='auto';el.style.marginRight='auto'} else {el.style.width='';el.style.marginLeft='';el.style.marginRight=''}
+    el.style.minHeight=cfg.height?cfg.height+'px':'';
+    const t=textTarget(el);
+    if(t){
+      if(cfg.label!==undefined)t.textContent=cfg.label;
+      t.style.fontSize=cfg.font?cfg.font+'px':'';
+    }
+    if(cfg.hidden){
+      if(editMode){el.classList.add('cfhidden');el.style.display=''}else el.style.display='none';
+    }else el.style.display='';
+  });
+  if(editMode&&selected){
+    const live=[...M.children].find(x=>x.dataset.cfkey===selected);
+    if(live){live.classList.add('cfselected');editHelp.textContent='Selected: '+((textTarget(live)?.textContent||live.textContent).trim().slice(0,40)||'block')}
+  }
+}
+function cfgFor(el){L.items=L.items||{};return L.items[el.dataset.cfkey]||(L.items[el.dataset.cfkey]={})}
+function selectBlock(el){selected=el.dataset.cfkey;decorate()}
+function selectedEl(){return [...M.children].find(x=>x.dataset.cfkey===selected)}
+function changeSelected(fn){
+  const el=selectedEl();if(!el)return alert('Tap a block first.');
+  fn(el,cfgFor(el));saveLayout();decorate()
+}
+function moveSelected(dir){
+  const el=selectedEl();if(!el)return alert('Tap a block first.');
+  const keys=[...M.children].map(x=>x.dataset.cfkey),i=keys.indexOf(selected),j=i+dir;if(j<0||j>=keys.length)return;
+  [keys[i],keys[j]]=[keys[j],keys[i]];L.order=L.order||{};L.order[s.view]=keys;saveLayout();render()
+}
+function enterEdit(){
+  let pin=localStorage.getItem(PK);
+  if(!pin){
+    const a=prompt('Create a 4-digit TEST ADMIN PIN for editing on this phone:');
+    if(!a||!/^[0-9]{4}$/.test(a))return alert('Please use exactly 4 digits.');
+    const b=prompt('Confirm the 4-digit PIN:');if(a!==b)return alert('PINs did not match.');
+    localStorage.setItem(PK,a);pin=a;
+  }else{
+    const a=prompt('Enter TEST ADMIN PIN:');if(a!==pin)return alert('Incorrect PIN.');
+  }
+  editMode=true;selected=null;document.body.classList.add('editing');editbar.classList.remove('hidden');editToggle.textContent='EDITING';render()
+}
+function exitEdit(){editMode=false;selected=null;document.body.classList.remove('editing');editbar.classList.add('hidden');editToggle.textContent='EDIT';render()}
+M.addEventListener('click',e=>{
+  if(!editMode)return;
+  const el=e.target.closest('[data-cfkey]');if(!el)return;
+  e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();selectBlock(el)
+},true);
+editToggle.onclick=()=>editMode?exitEdit():enterEdit();
+editDone.onclick=exitEdit;
+editUp.onclick=()=>moveSelected(-1);editDown.onclick=()=>moveSelected(1);
+editNarrow.onclick=()=>changeSelected((el,cfg)=>cfg.width=Math.max(50,(cfg.width||100)-5));
+editWide.onclick=()=>changeSelected((el,cfg)=>cfg.width=Math.min(100,(cfg.width||Math.round(el.getBoundingClientRect().width/M.getBoundingClientRect().width*100))+5));
+editShort.onclick=()=>changeSelected((el,cfg)=>cfg.height=Math.max(36,(cfg.height||el.offsetHeight)-10));
+editTall.onclick=()=>changeSelected((el,cfg)=>cfg.height=(cfg.height||el.offsetHeight)+10);
+editTextMinus.onclick=()=>changeSelected((el,cfg)=>{const t=textTarget(el);if(!t)return alert('This block has no editable heading.');cfg.font=Math.max(10,(cfg.font||parseFloat(getComputedStyle(t).fontSize))-1)});
+editTextPlus.onclick=()=>changeSelected((el,cfg)=>{const t=textTarget(el);if(!t)return alert('This block has no editable heading.');cfg.font=Math.min(34,(cfg.font||parseFloat(getComputedStyle(t).fontSize))+1)});
+editRename.onclick=()=>changeSelected((el,cfg)=>{if(isProtected(el))return alert('Workflow button wording is protected in phone edit mode.');const t=textTarget(el);if(!t)return alert('This block has no editable label.');const v=prompt('New label:',cfg.label!==undefined?cfg.label:t.textContent);if(v!==null&&v.trim())cfg.label=v.trim()});
+editHide.onclick=()=>changeSelected((el,cfg)=>{if(isProtected(el))return alert('Critical workflow buttons cannot be hidden.');cfg.hidden=!cfg.hidden;editHide.textContent=cfg.hidden?'SHOW':'HIDE'});
+editReset.onclick=()=>{const el=selectedEl();if(!el)return alert('Tap a block first.');delete L.items[el.dataset.cfkey];saveLayout();render()};
+editResetScreen.onclick=()=>{if(!confirm('Reset all layout edits on this screen?'))return;const prefix=s.view+':';Object.keys(L.items||{}).filter(k=>k.startsWith(prefix)).forEach(k=>delete L.items[k]);if(L.order)delete L.order[s.view];saveLayout();selected=null;render()};
 function newJob(){M.innerHTML='<div class="eyebrow">New Jobs</div>'+(!s.started?'<div class="card"><div class="title">NEW JOB</div><div class="ref">Job CF-10427</div></div><div class="card"><h3>Collection</h3>ABC Logistics<br>12 High Street<br>London EC1V 2NX<div class="muted">Ready: Now</div></div><div class="card"><h3>Delivery</h3>XYZ Services<br>44 New Street<br>Birmingham B2 4QA</div><div class="card"><h3>Service / Vehicle</h3><div class="muted">Sameday Dedicated • Small Van</div></div><div class="card"><h3>Special Instructions</h3><div class="muted">Reception collection — reference 12345</div></div><button class="action" id="go">START JOB</button>':'<div class="notice">This test job has already been started.</div><button class="action" id="go">OPEN ACTIVE COLLECTION</button>')+'<div style="height:10px"></div><button class="secondary" id="reset">Reset test job</button>';go.onclick=()=>{s.started=true;s.view='collection';save();sync();render()};reset.onclick=()=>{if(confirm('Reset this test job?')){localStorage.removeItem(K);s={...D};render()}}}
 function collection(){const seq=['ARRIVED AT COLLECTION','CONFIRM COLLECTION','COLLECTED'],lab=seq[Math.min(s.cstep,2)];M.innerHTML='<div class="eyebrow">Collection</div><div class="progress"><span class="pill active">En route</span><span class="pill '+(s.cstep>=1?'done':'')+'">Arrived</span><span class="pill '+(s.cstep>=2?'done':'')+'">Confirmed</span></div><div class="card"><div class="title">EN ROUTE TO COLLECTION</div><div class="ref">Job CF-10427</div></div><div class="card"><h3>Collection Address</h3>ABC Logistics<br>12 High Street<br>London EC1V 2NX</div><div class="card"><h3>Contact</h3><div class="muted">John Smith • 0207 000 0000</div></div><div class="grid2"><div class="card"><h3>Goods</h3><div class="muted">3 items</div></div><button class="secondary" id="nav">NAVIGATE</button></div><div class="card"><h3>Collection Photo</h3><div class="photo">Photo capture placeholder</div></div><button class="action" id="act">'+lab+'</button>';nav.onclick=nav;act.onclick=()=>{if(s.cstep<2){s.cstep++;save();sync();render()}else{s.collected=true;s.view='onboard';save();sync();render()}}}
 function onboard(){M.innerHTML='<div class="eyebrow">On Board</div><div class="card"><div class="title">ON BOARD</div><div class="ref">1 job • 3 items</div></div><div class="card"><h3>CF-10427 • Ready for delivery</h3>XYZ Services<br>Birmingham B2 4QA<div class="muted">Collected and onboard</div></div><button class="action" id="go">ENROUTE TO DELIVERY</button>';go.onclick=()=>{s.dstarted=true;s.view='delivery';save();sync();render()}}
@@ -58,6 +144,6 @@ function wireSig(){const c=sig,x=c.getContext('2d');x.lineWidth=4;x.lineCap='rou
 function complete(){s.view='delivery';badges();M.innerHTML='<div class="eyebrow">Completed</div><div class="notice success"><strong>Job CF-10427 completed.</strong><br>POD saved for '+html(s.name)+' at '+html(s.time)+' on '+html(s.date)+'.</div><div class="card"><h3>Delivery</h3>XYZ Services<br>44 New Street<br>Birmingham B2 4QA<div class="muted">POD complete</div></div><button class="secondary" id="again">Reset and test again</button>';again.onclick=()=>{localStorage.removeItem(K);s={...D};render()}}
 function html(v){return String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}function esc(v){return html(v)}
 document.querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>{const v=b.dataset.view;if(v==='new')set('new');else if(v==='onboard'){if(!s.collected)return alert('No jobs are currently On Board.');set('onboard')}else{if(!s.dstarted)return alert('No delivery has been started yet.');set('delivery')}})
-if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));render()})();
+if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').then(r=>r.update()).catch(()=>{}));render()})();
 </script>
 </body></html>
