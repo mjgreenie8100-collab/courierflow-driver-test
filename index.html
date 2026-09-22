@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101820">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg">
+<title>Courier Flow Driver</title>
+<style>
+:root{--bg:#eef2f6;--card:#fff;--ink:#17212b;--muted:#6c7783;--line:#d8e0e7;--blue:#1f6feb;--dark:#101820;--green:#168355}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}
+.app{max-width:560px;margin:auto;min-height:100vh;background:#f7f9fb;padding-bottom:74px}
+header{position:sticky;top:0;z-index:5;background:var(--dark);color:#fff;padding:14px 16px}
+.top{display:flex;justify-content:space-between;gap:10px;align-items:center}.brand{font-weight:900}.sync{font-size:12px;color:#b9f2d1}
+main{padding:14px}.eyebrow{font-size:11px;font-weight:900;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin:2px 0 9px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:14px;margin-bottom:11px}
+.title{font-size:20px;font-weight:900}.ref,.muted{color:var(--muted);font-size:13px;margin-top:3px}
+h3{font-size:14px;margin:0 0 5px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button,input,textarea{font:inherit}.action,.secondary{width:100%;min-height:54px;border-radius:12px;padding:12px 14px;font-weight:900}
+.action{border:0;background:var(--blue);color:white}.secondary{border:1px solid var(--line);background:#fff;color:var(--ink)}
+.navbtn{height:100%;border:0;background:#fff;color:#64707b;font-size:12px;font-weight:900}.navbtn.active{color:var(--blue);background:#eef5ff}
+.bottom{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(560px,100%);height:68px;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);z-index:8;background:white}
+.badge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:99px;background:#e7ecf1;font-size:10px;margin-left:3px}
+.progress{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:11px}.pill{font-size:11px;font-weight:800;padding:5px 8px;border-radius:99px;background:#e7ecf1;color:#5f6974}.pill.done{background:#e5f4ec;color:#176e48}.pill.active{background:#e8f1ff;color:#1658b3}
+label{display:block;font-size:13px;font-weight:800;margin:12px 0 6px}input,textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:white;padding:12px;font-size:16px}
+textarea{min-height:88px}.sigwrap{background:white;border:1px solid var(--line);border-radius:12px;padding:8px}.sighead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:12px;color:var(--muted)}
+#sig{width:100%;height:190px;display:block;border:1px dashed #aeb8c2;border-radius:9px;background:#fff;touch-action:none}
+.small{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 10px;font-weight:800}.notice{border:1px solid #ead49c;background:#fff8e8;color:#6c592e;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:11px}
+.success{border-color:#b8dfca;background:#e9f7f0;color:#176942}.hidden{display:none}.photo{min-height:84px;border:1px dashed #aeb8c2;border-radius:10px;display:grid;place-items:center;color:var(--muted);font-size:13px;background:white}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div class="top"><div class="brand">Courier Flow Driver</div><div class="sync" id="sync">● Synced</div></div></header>
+<main id="main"></main>
+<nav class="bottom">
+<button class="navbtn" data-view="new">New Jobs <span class="badge" id="bn">1</span></button>
+<button class="navbtn" data-view="onboard">On Board <span class="badge" id="bo">0</span></button>
+<button class="navbtn" data-view="delivery">Deliveries <span class="badge" id="bd">0</span></button>
+</nav></div>
+<script>
+(()=>{const M=document.getElementById('main'),K='cf_driver_test_v2';const D={view:'new',started:false,cstep:0,collected:false,dstarted:false,dstep:0,pod:false,name:'',date:'',time:'',notes:''};let s=load();
+function load(){try{return {...D,...JSON.parse(localStorage.getItem(K)||'{}')}}catch{return {...D}}}
+function save(){localStorage.setItem(K,JSON.stringify(s));badges()}
+function now(){const d=new Date(),p=n=>String(n).padStart(2,'0');return{date:d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()),time:p(d.getHours())+':'+p(d.getMinutes())}}
+function sync(){const x=document.getElementById('sync');x.textContent='● Syncing';x.style.color='#ffd28a';setTimeout(()=>{x.textContent='● Synced';x.style.color=''},450)}
+function badges(){bn.textContent=s.started?'0':'1';bo.textContent=s.collected&&!s.dstarted&&!s.pod?'1':'0';bd.textContent=s.dstarted&&!s.pod?'1':'0';document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.view===s.view))}
+function set(v){s.view=v;save();render()}
+function nav(){alert('Navigation is a test placeholder. Google Maps/Waze will be connected in the production build.')}
+function render(){badges();if(s.pod){complete();return}({new:newJob,collection,onboard,delivery,pod}[s.view]||newJob)()}
+function newJob(){M.innerHTML='<div class="eyebrow">New Jobs</div>'+(!s.started?'<div class="card"><div class="title">NEW JOB</div><div class="ref">Job CF-10427</div></div><div class="card"><h3>Collection</h3>ABC Logistics<br>12 High Street<br>London EC1V 2NX<div class="muted">Ready: Now</div></div><div class="card"><h3>Delivery</h3>XYZ Services<br>44 New Street<br>Birmingham B2 4QA</div><div class="card"><h3>Service / Vehicle</h3><div class="muted">Sameday Dedicated • Small Van</div></div><div class="card"><h3>Special Instructions</h3><div class="muted">Reception collection — reference 12345</div></div><button class="action" id="go">START JOB</button>':'<div class="notice">This test job has already been started.</div><button class="action" id="go">OPEN ACTIVE COLLECTION</button>')+'<div style="height:10px"></div><button class="secondary" id="reset">Reset test job</button>';go.onclick=()=>{s.started=true;s.view='collection';save();sync();render()};reset.onclick=()=>{if(confirm('Reset this test job?')){localStorage.removeItem(K);s={...D};render()}}}
+function collection(){const seq=['ARRIVED AT COLLECTION','CONFIRM COLLECTION','COLLECTED'],lab=seq[Math.min(s.cstep,2)];M.innerHTML='<div class="eyebrow">Collection</div><div class="progress"><span class="pill active">En route</span><span class="pill '+(s.cstep>=1?'done':'')+'">Arrived</span><span class="pill '+(s.cstep>=2?'done':'')+'">Confirmed</span></div><div class="card"><div class="title">EN ROUTE TO COLLECTION</div><div class="ref">Job CF-10427</div></div><div class="card"><h3>Collection Address</h3>ABC Logistics<br>12 High Street<br>London EC1V 2NX</div><div class="card"><h3>Contact</h3><div class="muted">John Smith • 0207 000 0000</div></div><div class="grid2"><div class="card"><h3>Goods</h3><div class="muted">3 items</div></div><button class="secondary" id="nav">NAVIGATE</button></div><div class="card"><h3>Collection Photo</h3><div class="photo">Photo capture placeholder</div></div><button class="action" id="act">'+lab+'</button>';nav.onclick=nav;act.onclick=()=>{if(s.cstep<2){s.cstep++;save();sync();render()}else{s.collected=true;s.view='onboard';save();sync();render()}}}
+function onboard(){M.innerHTML='<div class="eyebrow">On Board</div><div class="card"><div class="title">ON BOARD</div><div class="ref">1 job • 3 items</div></div><div class="card"><h3>CF-10427 • Ready for delivery</h3>XYZ Services<br>Birmingham B2 4QA<div class="muted">Collected and onboard</div></div><button class="action" id="go">ENROUTE TO DELIVERY</button>';go.onclick=()=>{s.dstarted=true;s.view='delivery';save();sync();render()}}
+function delivery(){const seq=['ARRIVED AT DELIVERY','POD'],lab=seq[Math.min(s.dstep,1)];M.innerHTML='<div class="eyebrow">Deliveries</div><div class="progress"><span class="pill active">En route</span><span class="pill '+(s.dstep>=1?'done':'')+'">Arrived</span><span class="pill">POD</span></div><div class="card"><div class="title">DELIVERY</div><div class="ref">Job CF-10427</div></div><div class="card"><h3>Delivery Address</h3>XYZ Services<br>44 New Street<br>Birmingham B2 4QA</div><div class="card"><h3>Contact</h3><div class="muted">Sarah Jones • 0121 000 0000</div></div><div class="grid2"><div class="card"><h3>Goods to deliver</h3><div class="muted">3 items</div></div><button class="secondary" id="nav">NAVIGATE</button></div><button class="action" id="act">'+lab+'</button>';nav.onclick=nav;act.onclick=()=>{if(s.dstep===0){s.dstep=1;save();sync();render()}else{const n=now();s.date=s.date||n.date;s.time=s.time||n.time;s.view='pod';save();render()}}}
+function pod(){const n=now();s.date=s.date||n.date;s.time=s.time||n.time;save();M.innerHTML='<div class="eyebrow">POD</div><div class="card"><div class="title">PROOF OF DELIVERY</div><div class="ref">Job CF-10427</div></div><label>Recipient Name</label><input id="name" value="'+esc(s.name)+'" placeholder="Enter recipient name"><div class="grid2"><div><label>POD Date</label><input id="date" type="date" value="'+esc(s.date)+'"></div><div><label>POD Time</label><input id="time" type="time" value="'+esc(s.time)+'"></div></div><label>Signature</label><div class="sigwrap"><div class="sighead"><span>Recipient signs on screen</span><button class="small" id="clear">Clear</button></div><canvas id="sig" width="720" height="380"></canvas></div><label>Delivery Notes</label><textarea id="notes" placeholder="Optional notes">'+html(s.notes)+'</textarea><label>Delivery Photo</label><div class="photo">Camera capture will be connected in the production build</div><div id="warn" class="notice hidden"></div><div style="height:12px"></div><button class="action" id="complete">COMPLETE DELIVERY</button>';wireSig();[['name','name'],['date','date'],['time','time'],['notes','notes']].forEach(([id,k])=>document.getElementById(id).oninput=e=>{s[k]=e.target.value;save()});complete.onclick=()=>{if(!s.name.trim()){warn.textContent='Enter the recipient name before completing POD.';warn.classList.remove('hidden');return}if(!window.sigOK){warn.textContent='Please obtain a recipient signature.';warn.classList.remove('hidden');return}s.pod=true;save();sync();render()}}
+function wireSig(){const c=sig,x=c.getContext('2d');x.lineWidth=4;x.lineCap='round';x.strokeStyle='#111';let d=false;const p=e=>{const r=c.getBoundingClientRect();return{x:(e.clientX-r.left)*c.width/r.width,y:(e.clientY-r.top)*c.height/r.height}};c.onpointerdown=e=>{d=true;c.setPointerCapture(e.pointerId);const q=p(e);x.beginPath();x.moveTo(q.x,q.y)};c.onpointermove=e=>{if(!d)return;const q=p(e);x.lineTo(q.x,q.y);x.stroke();window.sigOK=true};c.onpointerup=()=>d=false;c.onpointercancel=()=>d=false;clear.onclick=()=>{x.clearRect(0,0,c.width,c.height);window.sigOK=false}}
+function complete(){s.view='delivery';badges();M.innerHTML='<div class="eyebrow">Completed</div><div class="notice success"><strong>Job CF-10427 completed.</strong><br>POD saved for '+html(s.name)+' at '+html(s.time)+' on '+html(s.date)+'.</div><div class="card"><h3>Delivery</h3>XYZ Services<br>44 New Street<br>Birmingham B2 4QA<div class="muted">POD complete</div></div><button class="secondary" id="again">Reset and test again</button>';again.onclick=()=>{localStorage.removeItem(K);s={...D};render()}}
+function html(v){return String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}function esc(v){return html(v)}
+document.querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>{const v=b.dataset.view;if(v==='new')set('new');else if(v==='onboard'){if(!s.collected)return alert('No jobs are currently On Board.');set('onboard')}else{if(!s.dstarted)return alert('No delivery has been started yet.');set('delivery')}})
+if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));render()})();
+</script>
+</body></html>
