@@ -192,7 +192,7 @@ function onboard(){
  let out='<div class="eyebrow">On Board</div>';
  if(!list.length)out+='<div class="queue-empty">No goods are currently on board.</div>';
  list.forEach(j=>{
-  const status=j.status==='pod'?'POD IN PROGRESS':j.dstep===0?'EN ROUTE TO DELIVERY':'ARRIVED AT DELIVERY';
+  const status=j.status==='returnCollection'?'WAITING FOR RETURN GOODS':j.status==='returnDelivery'?'RETURN GOODS ON BOARD':j.status==='returnPod'?'RETURN POD IN PROGRESS':j.status==='pod'?'POD IN PROGRESS':j.dstep===0?'EN ROUTE TO DELIVERY':'ARRIVED AT DELIVERY';
   out+='<div class="jobbundle"><div class="jobref">'+j.id+' <span class="jobstatus">'+status+'</span></div><div class="card"><h3>Delivery</h3>'+html(j.deliveryCompany)+'<br>'+html(j.deliveryAddress)+'<br>'+html(j.deliveryTown)+'<div class="muted">'+html(j.goods)+'</div></div><button class="secondary openDelivery" data-id="'+j.id+'">OPEN JOB</button></div>'
  });
  M.innerHTML=out;
@@ -204,18 +204,18 @@ function deliveryList(){
  let out='<div class="eyebrow">Deliveries</div>';
  if(!list.length)out+='<div class="queue-empty">No active deliveries yet. Collect a job and send its collection photo to move it here.</div>';
  list.forEach(j=>{
-  const status=j.status==='pod'?'POD IN PROGRESS':j.dstep===0?'EN ROUTE':'ARRIVED';
-  out+='<div class="jobbundle"><div class="jobref">'+j.id+' <span class="jobstatus">'+status+'</span></div><div class="card"><h3>Delivery</h3>'+html(j.deliveryCompany)+'<br>'+html(j.deliveryAddress)+'<br>'+html(j.deliveryTown)+'</div><div class="card"><h3>Goods</h3><div class="muted">'+html(j.goods)+'</div></div><button class="action openDelivery" data-id="'+j.id+'">'+(j.status==='pod'?'OPEN POD':'OPEN DELIVERY')+'</button></div>'
+  const status=j.status==='returnCollection'?'WAIT / COLLECT RETURN GOODS':j.status==='returnDelivery'?'RETURN TO COLLECTION':j.status==='returnPod'?'RETURN POD':j.status==='pod'?'POD IN PROGRESS':j.dstep===0?'EN ROUTE':'ARRIVED';
+  out+='<div class="jobbundle"><div class="jobref">'+j.id+' <span class="jobstatus">'+status+'</span></div><div class="card"><h3>Delivery</h3>'+html(j.deliveryCompany)+'<br>'+html(j.deliveryAddress)+'<br>'+html(j.deliveryTown)+'</div><div class="card"><h3>Goods</h3><div class="muted">'+html(j.goods)+'</div></div><button class="action openDelivery" data-id="'+j.id+'">'+(j.status==='returnCollection'?'OPEN RETURN COLLECTION':j.status==='returnDelivery'?'OPEN RETURN JOURNEY':j.status==='returnPod'?'OPEN RETURN POD':j.status==='pod'?'OPEN POD':'OPEN DELIVERY')+'</button></div>'
  });
  M.innerHTML=out;
  document.querySelectorAll('.openDelivery').forEach(b=>b.onclick=()=>openDelivery(b.dataset.id))
 }
-function openDelivery(id){const j=job(id);s.selected=id;s.view=j.status==='pod'?'pod':'deliveryDetail';save();render()}
+function openDelivery(id){const j=job(id);s.selected=id;s.view=j.status==='returnCollection'?'returnCollection':j.status==='returnDelivery'?'returnDelivery':j.status==='returnPod'?'returnPod':j.status==='pod'?'pod':'deliveryDetail';save();render()}
 
 function deliveryDetail(){
  const j=selectedJob();if(!j||j.status!=='delivery'){s.view='delivery';s.selected=null;save();return render()}
  const lab=j.dstep===0?'ARRIVED AT DELIVERY':'POD';
- M.innerHTML='<div class="eyebrow">Deliveries</div><div class="progress"><span class="pill '+(j.dstep===0?'active':'done')+'">En route</span><span class="pill '+(j.dstep===1?'active':'')+'">Arrived</span><span class="pill">POD</span></div><div class="card"><div class="title">DELIVERY</div><div class="ref">Job '+j.id+'</div></div><div class="card"><h3>Delivery Address</h3>'+html(j.deliveryCompany)+'<br>'+html(j.deliveryAddress)+'<br>'+html(j.deliveryTown)+'</div><div class="card"><h3>Contact</h3><div class="muted">'+html(j.deliveryContact)+' • '+html(j.deliveryPhone)+'</div></div><div class="grid2"><div class="card"><h3>Goods to deliver</h3><div class="muted">'+html(j.goods)+'</div></div><button class="secondary" id="navBtn">NAVIGATE</button></div><button class="action" id="deliveryAction">'+lab+'</button><div style="height:10px"></div><button class="secondary" id="backDeliveries">BACK TO DELIVERIES</button>';
+ M.innerHTML='<div class="eyebrow">Deliveries</div><div class="progress"><span class="pill '+(j.dstep===0?'active':'done')+'">En route</span><span class="pill '+(j.dstep===1?'active':'')+'">Arrived</span><span class="pill">POD</span></div><div class="card"><div class="title">DELIVERY'+(j.waitAndReturn?' · W/R':'')+'</div><div class="ref">Job '+j.id+'</div></div>'+(j.waitAndReturn?'<div class="notice"><strong>WAIT & RETURN</strong><br>After this delivery POD, remain at this address and collect the return goods.</div>':'')+'<div class="card"><h3>Delivery Address</h3>'+html(j.deliveryCompany)+'<br>'+html(j.deliveryAddress)+'<br>'+html(j.deliveryTown)+'</div><div class="card"><h3>Contact</h3><div class="muted">'+html(j.deliveryContact)+' • '+html(j.deliveryPhone)+'</div></div><div class="grid2"><div class="card"><h3>Goods to deliver</h3><div class="muted">'+html(j.goods)+'</div></div><button class="secondary" id="navBtn">NAVIGATE</button></div><button class="action" id="deliveryAction">'+lab+'</button><div style="height:10px"></div><button class="secondary" id="backDeliveries">BACK TO DELIVERIES</button>';
  navBtn.onclick=nav;
  backDeliveries.onclick=()=>setView('delivery');
  deliveryAction.onclick=()=>{
@@ -249,6 +249,29 @@ function pod(){
   })
  }
 }
+function returnCollection(){
+ const j=selectedJob();if(!j||j.status!=='returnCollection'){s.view='delivery';s.selected=null;save();return render()}
+ M.innerHTML='<div class="eyebrow">Wait & Return</div><div class="notice"><strong>OUTBOUND POD COMPLETE</strong><br>Wait at the delivery address until the return goods are ready. Collect them before leaving.</div><div class="card"><div class="title">RETURN COLLECTION</div><div class="ref">Job '+j.id+' · W/R</div></div><div class="card"><h3>Collect return goods from</h3>'+html(j.deliveryCompany)+'<br>'+html(j.deliveryAddress)+'<br>'+html(j.deliveryTown)+'</div><div class="card"><h3>Return destination</h3>'+html(j.collectionCompany)+'<br>'+html(j.collectionAddress)+'<br>'+html(j.collectionTown)+'</div><button class="action" id="returnCollected">RETURN GOODS COLLECTED / POB</button>';
+ returnCollected.onclick=()=>askConfirm('Return goods collected?','Confirm the return goods have been collected from the delivery address for '+j.id+'.','YES — COLLECTED',()=>{j.status='returnDelivery';j.rstep=0;s.view='returnDelivery';save();sync();render()})
+}
+function returnDelivery(){
+ const j=selectedJob();if(!j||j.status!=='returnDelivery'){s.view='delivery';s.selected=null;save();return render()}
+ const lab=j.rstep===0?'ARRIVED AT RETURN DELIVERY':'RETURN POD';
+ M.innerHTML='<div class="eyebrow">Wait & Return</div><div class="progress"><span class="pill '+(j.rstep===0?'active':'done')+'">Return journey</span><span class="pill '+(j.rstep===1?'active':'')+'">Arrived</span><span class="pill">POD</span></div><div class="card"><div class="title">RETURN DELIVERY</div><div class="ref">Job '+j.id+' · W/R</div></div><div class="card"><h3>Return to original collection address</h3>'+html(j.collectionCompany)+'<br>'+html(j.collectionAddress)+'<br>'+html(j.collectionTown)+'</div><div class="grid2"><div class="card"><h3>Return goods</h3><div class="muted">Collected from '+html(j.deliveryCompany)+'</div></div><button class="secondary" id="navBtn">NAVIGATE</button></div><button class="action" id="returnAction">'+lab+'</button>';
+ navBtn.onclick=nav;
+ returnAction.onclick=()=>{if(j.rstep===0){askConfirm('Arrived at return destination?','Confirm you have arrived back at the original collection address for '+j.id+'.','YES — ARRIVED',()=>{j.rstep=1;save();sync();render()})}else{askConfirm('Open return POD?','Confirm you are ready to complete the return POD for '+j.id+'.','YES — POD',()=>{j.status='returnPod';const n=now();j.returnPod.date=j.returnPod.date||n.date;j.returnPod.time=j.returnPod.time||n.time;s.view='returnPod';save();render()})}}
+}
+function returnPod(){
+ const j=selectedJob();if(!j||j.status!=='returnPod'){s.view='delivery';s.selected=null;save();return render()}
+ const n=now();j.returnPod.date=j.returnPod.date||n.date;j.returnPod.time=j.returnPod.time||n.time;save();sigOK=false;
+ M.innerHTML='<div class="eyebrow">Return POD</div><div class="ref" style="margin-bottom:10px">Job '+j.id+' · W/R</div><div class="notice"><strong>FINAL RETURN DELIVERY</strong><br>This POD is for the goods returned to the original collection address.</div><label>Recipient Name</label><input id="podName" value="'+html(j.returnPod.name)+'" placeholder="Enter recipient name"><div class="grid2"><div><label>POD Date</label><input id="podDate" type="date" value="'+html(j.returnPod.date)+'"></div><div><label>POD Time</label><input id="podTime" type="time" value="'+html(j.returnPod.time)+'"></div></div><label>Signature</label><div class="sigwrap"><div class="sighead"><span>Recipient signs on screen</span><button class="small" id="clearSig">Clear</button></div><canvas id="sig" width="720" height="380"></canvas></div><label>Return Notes</label><textarea id="podNotes" placeholder="Optional notes">'+html(j.returnPod.notes)+'</textarea><div id="podWarn" class="notice hidden"></div><div style="height:12px"></div><button class="action" id="completeReturn">COMPLETE WAIT & RETURN</button>';
+ wireSig();
+ podName.oninput=e=>{j.returnPod.name=e.target.value;save()};
+ podDate.oninput=e=>{j.returnPod.date=e.target.value;save()};
+ podTime.oninput=e=>{j.returnPod.time=e.target.value;save()};
+ podNotes.oninput=e=>{j.returnPod.notes=e.target.value;save()};
+ completeReturn.onclick=()=>{if(!j.returnPod.name.trim()){podWarn.textContent='Enter the recipient name before completing the return POD.';podWarn.classList.remove('hidden');return}if(!sigOK){podWarn.textContent='Please obtain a recipient signature.';podWarn.classList.remove('hidden');return}askConfirm('Complete wait & return?','Confirm the return goods have been delivered back to the original collection address.','YES — COMPLETE',()=>{j.status='complete';j.completedAt=j.returnPod.date+' '+j.returnPod.time;s.view='complete';save();sync();render()})}
+}
 function wireSig(){
  const canvas=document.getElementById('sig'),ctx=canvas.getContext('2d');ctx.lineWidth=4;ctx.lineCap='round';ctx.strokeStyle='#111';let drawing=false;
  const p=e=>{const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)*canvas.width/r.width,y:(e.clientY-r.top)*canvas.height/r.height}};
@@ -259,7 +282,7 @@ function wireSig(){
 }
 function completeScreen(){
  const j=selectedJob();if(!j||j.status!=='complete'){s.view='delivery';s.selected=null;save();return render()}
- M.innerHTML='<div class="eyebrow">Completed</div><div class="notice success"><strong>Job '+j.id+' completed.</strong><br>POD saved for '+html(j.pod.name)+' at '+html(j.pod.time)+' on '+html(j.pod.date)+'.</div><div class="card"><h3>Delivery</h3>'+html(j.deliveryCompany)+'<br>'+html(j.deliveryAddress)+'<br>'+html(j.deliveryTown)+'<div class="muted">POD complete</div></div><button class="action" id="backDeliveries">BACK TO DELIVERIES</button><div style="height:10px"></div><button class="secondary" id="backJobs">NEW JOBS</button>';
+ M.innerHTML='<div class="eyebrow">Completed</div><div class="notice success"><strong>Job '+j.id+' completed.</strong><br>'+(j.waitAndReturn?'Outbound POD: '+html(j.pod.name)+' at '+html(j.pod.time)+' on '+html(j.pod.date)+'.<br>Return POD: '+html(j.returnPod.name)+' at '+html(j.returnPod.time)+' on '+html(j.returnPod.date)+'.':'POD saved for '+html(j.pod.name)+' at '+html(j.pod.time)+' on '+html(j.pod.date)+'.')+'</div><div class="card"><h3>'+(j.waitAndReturn?'Wait & Return complete':'Delivery')+'</h3>'+html(j.deliveryCompany)+'<br>'+html(j.deliveryAddress)+'<br>'+html(j.deliveryTown)+(j.waitAndReturn?'<div class="muted">Returned to '+html(j.collectionCompany)+' · '+html(j.collectionTown)+'</div>':'<div class="muted">POD complete</div>')+'</div><button class="action" id="backDeliveries">BACK TO DELIVERIES</button><div style="height:10px"></div><button class="secondary" id="backJobs">NEW JOBS</button>';
  backDeliveries.onclick=()=>setView('delivery');backJobs.onclick=()=>setView('new')
 }
 
