@@ -72,13 +72,13 @@ const confirmOverlay=document.getElementById('confirmOverlay'),confirmTitle=docu
 const K='cf_driver_multi_v1',EK='cf_driver_layout_edits_v1',PK='cf_driver_admin_pin_v1';
 
 const TEST_JOBS=[
- {id:'CF-10427',service:'Sameday Dedicated',vehicle:'Small Van',collectionCompany:'ABC Logistics',collectionAddress:'12 High Street',collectionTown:'London EC1V 2NX',collectionContact:'John Smith',collectionPhone:'0207 000 0000',deliveryCompany:'XYZ Services',deliveryAddress:'44 New Street',deliveryTown:'Birmingham B2 4QA',deliveryContact:'Sarah Jones',deliveryPhone:'0121 000 0000',goods:'3 items',instructions:'Reception collection — reference 12345'},
+ {id:'CF-10427',service:'Sameday Dedicated',vehicle:'Small Van',waitAndReturn:true,collectionCompany:'ABC Logistics',collectionAddress:'12 High Street',collectionTown:'London EC1V 2NX',collectionContact:'John Smith',collectionPhone:'0207 000 0000',deliveryCompany:'XYZ Services',deliveryAddress:'44 New Street',deliveryTown:'Birmingham B2 4QA',deliveryContact:'Sarah Jones',deliveryPhone:'0121 000 0000',goods:'3 items',instructions:'Reception collection — reference 12345'},
  {id:'CF-10428',service:'Sameday Dedicated',vehicle:'Medium Van',collectionCompany:'Northstar Print',collectionAddress:'85 Camden Road',collectionTown:'London NW1 9HE',collectionContact:'Emma Lewis',collectionPhone:'0207 111 2200',deliveryCompany:'Terminal Cargo Services',deliveryAddress:'Cargo Point',deliveryTown:'Heathrow TW6 2GA',deliveryContact:'Mark Patel',deliveryPhone:'0208 222 3100',goods:'6 boxes',instructions:'Ask for Goods In on arrival'},
  {id:'CF-10429',service:'Urgent Documents',vehicle:'Car',collectionCompany:'City Legal Documents',collectionAddress:'20 Finsbury Square',collectionTown:'London EC2A 1DX',collectionContact:'Daniel Reed',collectionPhone:'0207 333 4400',deliveryCompany:'Reading Business Centre',deliveryAddress:'1 Station Road',deliveryTown:'Reading RG1 1LG',deliveryContact:'Lucy Adams',deliveryPhone:'0118 555 6600',goods:'1 document pouch',instructions:'Time-critical documents — hand directly to recipient'},
  {id:'CF-10430',service:'Sameday Dedicated',vehicle:'LWB Van',collectionCompany:'East End Events',collectionAddress:'145 Commercial Street',collectionTown:'London E1 6BJ',collectionContact:'Tom Baker',collectionPhone:'0207 777 8800',deliveryCompany:'South London Exhibitions',deliveryAddress:'18 Wellesley Road',deliveryTown:'Croydon CR0 2AD',deliveryContact:'Hannah Cole',deliveryPhone:'0208 888 9900',goods:'8 equipment cases',instructions:'Fragile event equipment — keep upright'}
 ];
 
-function freshJob(t){return Object.assign({},t,{status:'new',cstep:0,dstep:0,pod:{name:'',date:'',time:'',notes:''},completedAt:''})}
+function freshJob(t){return Object.assign({},t,{waitAndReturn:!!t.waitAndReturn,status:'new',cstep:0,dstep:0,rstep:0,pod:{name:'',date:'',time:'',notes:''},returnPod:{name:'',date:'',time:'',notes:''},completedAt:''})}
 function freshState(){return{view:'new',selected:null,jobs:TEST_JOBS.map(freshJob)}}
 function load(){
  try{
@@ -109,18 +109,18 @@ function closeConfirm(){confirmOverlay.classList.add('hidden');confirmAction=nul
 confirmNo.onclick=closeConfirm;
 confirmYes.onclick=()=>{const fn=confirmAction;closeConfirm();if(fn)fn()};
 confirmOverlay.addEventListener('click',e=>{if(e.target===confirmOverlay)closeConfirm()});
-function activeDeliveryJobs(){return s.jobs.filter(j=>j.status==='delivery'||j.status==='pod')}
+function activeDeliveryJobs(){return s.jobs.filter(j=>['delivery','pod','returnCollection','returnDelivery','returnPod'].includes(j.status))}
 function badges(){
  bn.textContent=s.jobs.filter(j=>j.status==='new').length;
  bo.textContent=activeDeliveryJobs().length;
  bd.textContent=activeDeliveryJobs().length;
- document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.view===s.view||(b.dataset.view==='delivery'&&['deliveryDetail','pod','complete'].includes(s.view))))
+ document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.view===s.view||(b.dataset.view==='delivery'&&['deliveryDetail','pod','returnCollection','returnDelivery','returnPod','complete'].includes(s.view))))
 }
 function setView(v){s.view=v;s.selected=null;save();render()}
 
 function render(){
  badges();
- const routes={new:newJobs,collection:collection,onboard:onboard,delivery:deliveryList,deliveryDetail:deliveryDetail,pod:pod,complete:completeScreen};
+ const routes={new:newJobs,collection:collection,onboard:onboard,delivery:deliveryList,deliveryDetail:deliveryDetail,pod:pod,returnCollection:returnCollection,returnDelivery:returnDelivery,returnPod:returnPod,complete:completeScreen};
  (routes[s.view]||newJobs)();
  setTimeout(decorate,0)
 }
@@ -136,7 +136,7 @@ function newJobs(){
  }
  if(!waiting.length&&!active.length)out+='<div class="queue-empty">No new or active collection jobs.</div>';
  waiting.forEach(j=>{
-  out+='<div class="jobbundle"><div class="jobref">'+j.id+'</div><div class="card"><h3>Service / Vehicle</h3><div class="muted">'+html(j.service)+' • '+html(j.vehicle)+'</div></div><div class="card"><h3>Collection</h3>'+html(j.collectionCompany)+'<br>'+html(j.collectionAddress)+'<br>'+html(j.collectionTown)+'<div class="muted">Ready: Now</div></div><div class="card"><h3>Delivery</h3>'+html(j.deliveryCompany)+'<br>'+html(j.deliveryAddress)+'<br>'+html(j.deliveryTown)+'</div><div class="card"><h3>Special Instructions</h3><div class="muted">'+html(j.instructions)+'</div></div><button class="action startJob" data-id="'+j.id+'">START JOB</button></div>'
+  out+='<div class="jobbundle"><div class="jobref">'+j.id+(j.waitAndReturn?' <span class="jobstatus">W/R</span>':'')+'</div><div class="card"><h3>Service / Vehicle</h3><div class="muted">'+html(j.service)+' • '+html(j.vehicle)+'</div></div>'+(j.waitAndReturn?'<div class="notice"><strong>WAIT & RETURN</strong><br>After the first delivery POD, wait at the delivery address, collect the return goods, then take them back to the original collection address and complete a second POD.</div>':'')+'<div class="card"><h3>Collection</h3>'+html(j.collectionCompany)+'<br>'+html(j.collectionAddress)+'<br>'+html(j.collectionTown)+'<div class="muted">Ready: Now</div></div><div class="card"><h3>Delivery</h3>'+html(j.deliveryCompany)+'<br>'+html(j.deliveryAddress)+'<br>'+html(j.deliveryTown)+'</div><div class="card"><h3>Special Instructions</h3><div class="muted">'+html(j.instructions)+'</div></div><button class="action startJob" data-id="'+j.id+'">START JOB</button></div>'
  });
  out+='<button class="secondary" id="resetAll">Reset all 4 test bookings</button>';
  M.innerHTML=out;
@@ -245,7 +245,7 @@ function pod(){
   if(!j.pod.name.trim()){podWarn.textContent='Enter the recipient name before completing POD.';podWarn.classList.remove('hidden');return}
   if(!sigOK){podWarn.textContent='Please obtain a recipient signature.';podWarn.classList.remove('hidden');return}
   askConfirm('Complete delivery?','Confirm delivery '+j.id+' is complete and the POD details are correct.','YES — COMPLETE',()=>{
-   j.status='complete';j.completedAt=j.pod.date+' '+j.pod.time;s.view='complete';save();sync();render()
+   if(j.waitAndReturn){j.status='returnCollection';j.rstep=0;s.view='returnCollection'}else{j.status='complete';j.completedAt=j.pod.date+' '+j.pod.time;s.view='complete'}save();sync();render()
   })
  }
 }
