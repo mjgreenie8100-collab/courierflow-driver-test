@@ -83,7 +83,10 @@ function freshState(){return{view:'new',selected:null,jobs:TEST_JOBS.map(freshJo
 function load(){
  try{
   const x=JSON.parse(localStorage.getItem(K)||'null');
-  if(x&&Array.isArray(x.jobs)&&x.jobs.length===TEST_JOBS.length)return x;
+  if(x&&Array.isArray(x.jobs)&&x.jobs.length===TEST_JOBS.length){
+   x.jobs=x.jobs.map((j,i)=>Object.assign({},TEST_JOBS[i],j,{waitAndReturn:!!TEST_JOBS[i].waitAndReturn,rstep:j.rstep||0,returnPod:j.returnPod||{name:'',date:'',time:'',notes:''}}));
+   return x;
+  }
  }catch(e){}
  return freshState()
 }
