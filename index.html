@@ -119,8 +119,9 @@ async function pullJobs(renderAfter=true){
  try{
   const rows=await api('/api/driver/jobs'),old=Object.fromEntries(s.jobs.map(j=>[j.apiId||j.id,j]));
   s.jobs=rows.map(b=>remoteJob(b,old[b.id]||{}));save();
+  const info=document.getElementById('jobSyncInfo');if(info)info.textContent='Server jobs: '+rows.length+' · '+new Date().toLocaleTimeString();
   syncLabel('● Live','#b9f2d1');if(renderAfter)render()
- }catch(err){syncLabel('● Offline','#ffb4b4')}
+ }catch(err){syncLabel('● Offline','#ffb4b4');const info=document.getElementById('jobSyncInfo');if(info)info.textContent='Job sync failed: '+err.message}
 }
 function syncLabel(textValue,color=''){const x=document.getElementById('sync');x.textContent=textValue;x.style.color=color}
 async function stage(j,name){if(!j.apiId)return;syncLabel('● Syncing','#ffd28a');await api('/api/driver/bookings/'+j.apiId+'/stage',{method:'PATCH',body:JSON.stringify({stage:name})});syncLabel('● Live','#b9f2d1')}
@@ -147,8 +148,11 @@ function freshState(){return{view:'new',selected:null,jobs:TEST_JOBS.map(freshJo
 function load(){
  try{
   const x=JSON.parse(localStorage.getItem(K)||'null');
-  if(x&&Array.isArray(x.jobs)&&x.jobs.length===TEST_JOBS.length){
-   x.jobs=x.jobs.map((j,i)=>Object.assign({},TEST_JOBS[i],j,{waitAndReturn:!!TEST_JOBS[i].waitAndReturn,rstep:j.rstep||0,returnPod:j.returnPod||{name:'',date:'',time:'',notes:''}}));
+  if(x&&Array.isArray(x.jobs)){
+   // Preserve live jobs regardless of count; the old four-job demo reset live data.
+   if(!localStorage.getItem(TK) && x.jobs.length===TEST_JOBS.length && x.jobs.every(j=>!j.apiId)){
+    x.jobs=x.jobs.map((j,i)=>Object.assign({},TEST_JOBS[i],j,{waitAndReturn:!!TEST_JOBS[i].waitAndReturn,rstep:j.rstep||0,returnPod:j.returnPod||{name:'',date:'',time:'',notes:''}}));
+   }
    return x;
   }
  }catch(e){}
@@ -194,7 +198,7 @@ function render(){
 
 function newJobs(){
  const waiting=s.jobs.filter(j=>j.status==='new'),active=s.jobs.filter(j=>j.status==='collection');
- let out='<div class="eyebrow">New Jobs</div>';
+ let out='<div class="eyebrow">New Jobs</div><div class="muted" id="jobSyncInfo" style="font-size:.8rem;margin-bottom:10px">Loaded jobs: '+s.jobs.length+'</div>';
  if(active.length){
   out+='<div class="notice"><strong>'+active.length+' active collection'+(active.length>1?'s':'')+'.</strong> You can return to any of them below.</div>';
   active.forEach(j=>{
