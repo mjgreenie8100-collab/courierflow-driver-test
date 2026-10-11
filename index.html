@@ -114,17 +114,28 @@ function remoteJob(b,old={}){
  goods:(b.pieces||1)+' item'+((b.pieces||1)===1?'':'s')+(b.goods_description?' · '+b.goods_description:''),instructions:[c.special_instructions,d.special_instructions].filter(Boolean).join(' / '),
  pod:old.pod||{name:'',date:'',time:'',notes:''},returnPod:old.returnPod||{name:'',date:'',time:'',notes:''},completedAt:old.completedAt||'',...st}
 }
+const localStagePending={};
 async function pullJobs(renderAfter=true){
  if(!liveToken)return;
  try{
   const rows=await api('/api/driver/jobs'),old=Object.fromEntries(s.jobs.map(j=>[j.apiId||j.id,j]));
-  s.jobs=rows.map(b=>remoteJob(b,old[b.id]||{}));save();
+  s.jobs=rows.map(b=>remoteJob(b,old[b.id]||{}));
+  // Do not let a stale server snapshot undo a stage that this device just confirmed.
+  for(const j of s.jobs){
+   const pending=localStagePending[j.apiId];
+   if(pending){
+    if(j.status===pending.status){delete localStagePending[j.apiId]}
+    else if(Date.now()-pending.at<30000){j.status=pending.status;j.cstep=pending.cstep;j.dstep=pending.dstep;j.rstep=pending.rstep}
+    else delete localStagePending[j.apiId];
+   }
+  }
+  save();
   const info=document.getElementById('jobSyncInfo');if(info)info.textContent='Server jobs: '+rows.length+' · '+new Date().toLocaleTimeString();
   syncLabel('● Live','#b9f2d1');if(renderAfter)render()
  }catch(err){syncLabel('● Offline','#ffb4b4');const info=document.getElementById('jobSyncInfo');if(info)info.textContent='Job sync failed: '+err.message}
 }
 function syncLabel(textValue,color=''){const x=document.getElementById('sync');x.textContent=textValue;x.style.color=color}
-async function stage(j,name){if(!j.apiId)return;syncLabel('● Syncing','#ffd28a');await api('/api/driver/bookings/'+j.apiId+'/stage',{method:'PATCH',body:JSON.stringify({stage:name})});syncLabel('● Live','#b9f2d1')}
+async function stage(j,name){if(!j.apiId)return;syncLabel('● Syncing','#ffd28a');const updated=await api('/api/driver/bookings/'+j.apiId+'/stage',{method:'PATCH',body:JSON.stringify({stage:name})});localStagePending[j.apiId]={...remoteStatus(updated,j),at:Date.now()};syncLabel('● Live','#b9f2d1')}
 async function sendPod(j,returnLeg=false){
  const p=returnLeg?j.returnPod:j.pod,dt=p.date&&p.time?new Date(p.date+'T'+p.time).toISOString():new Date().toISOString();
  return api('/api/driver/bookings/'+j.apiId+(returnLeg?'/return-pod':'/delivery-pod'),{method:'POST',body:JSON.stringify({recipient_name:p.name,recorded_at:dt,notes:p.notes||''})})
